@@ -3,6 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug, PartialEq)]
 pub enum Value {
     String(String),
+    Bool(bool),
     List(Vec<String>),
     Bucket(Bucket),
 }
@@ -11,6 +12,7 @@ impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
             Value::String(value) => Value::String(value.clone()),
+            Value::Bool(value) => Value::Bool(value.clone()),
             Value::List(value) => Value::List(value.clone()),
             Value::Bucket(value) => Value::Bucket(value.clone()),
         }
@@ -65,6 +67,21 @@ mod tests {
         assert_eq!(
             *bucket.get("test").unwrap(),
             Value::String("value".to_string())
+        );
+    }
+
+    #[test]
+    fn it_can_hold_bools() {
+        let mut bucket = Bucket::new();
+        bucket.set("f", Value::Bool(false));
+        bucket.set("t", Value::Bool(true));
+        assert_eq!(
+            *bucket.get("f").unwrap(),
+            Value::Bool(false)
+        );
+        assert_eq!(
+            *bucket.get("t").unwrap(),
+            Value::Bool(true)
         );
     }
 
