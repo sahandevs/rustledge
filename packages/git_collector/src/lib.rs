@@ -1,20 +1,14 @@
 use git2::*;
 use bucket;
 use std::fs;
+use walkdir::WalkDir;
+use std::io::Read;
 
 const COMMIT_NAME: &str = "COMMIT-NAME";
 const IS_HEAD: &str = "IS-HEAD";
 const COMMIT_MESSAGE: &str = "COMMIT-MESSAGE";
 const COMMIT_DESCRIPTION: &str = "COMMIT-DESCRIPTION";
 const FILES: &str = "FILES";
-
-fn test() -> Result<(), git2::Error> {
-    let repo = Repository::init("./test_artifacts")?;
-    repo.head().unwrap();
-    let desc = repo.describe(&DescribeOptions::new())?;
-    println!("{}", desc.format(None)?);
-    Ok(())
-}
 
 pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket, git2::Error> {
     repository.checkout_head(None)?;
@@ -23,18 +17,45 @@ pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket
     let commit_name = commit.id().to_string();
     let commit_message = commit.message().unwrap_or("").to_string();
     let commit_description = commit.summary().unwrap_or("").to_string();
-    println!("{:?}", repository.path());
+    let git_dir_root = repository.path().parent().unwrap();
 
     let mut bucket = bucket::Bucket::new();
+
+    // set general info
     bucket.set(COMMIT_NAME, bucket::Value::String(commit_name));
     bucket.set(COMMIT_MESSAGE, bucket::Value::String(commit_message));
     bucket.set(COMMIT_DESCRIPTION, bucket::Value::String(commit_description));
     bucket.set(IS_HEAD, bucket::Value::Bool(true));
+
+    // set files
     let mut files_bucket = bucket::Bucket::new();
-    files_bucket.set("file.txt", bucket::Value::String("test string file".to_string()));
-    files_bucket.set("folder/file", bucket::Value::String("file2 content".to_string()));
+    let git_dir_root_as_str = String::from(git_dir_root.to_str().unwrap())
+        .replace("\\", "/") + "/";
+    for entry in WalkDir::new(git_dir_root)
+        .into_iter()
+        .filter_map(|x| x.ok())
+        // filter only files and ignore /.git folder
+        .filter(|x| x.path().is_file() && !x.path().to_str().unwrap().contains(".git")) {
+        // create a relative path for the key
+        let relative_path = String::from(entry.path().to_str().unwrap())
+            .replace("\\", "/") // support both win and linux
+            .replace(&git_dir_root_as_str, "");
+
+        let mut file = fs::File::open(entry.path()).unwrap();
+        // ignore files larger than 1mb
+        // TODO: add this to options
+        if file.metadata().unwrap().len() > 1_000_000 {
+            continue;
+        }
+        println!("{:?}", relative_path);
+        let mut content = String::new();
+        file.read_to_string(&mut content).unwrap();
+
+        files_bucket.set(&relative_path, bucket::Value::String(content));
+    }
     bucket.set(FILES, bucket::Value::Bucket(files_bucket));
-    todo!()
+
+    Ok(bucket)
 }
 
 #[cfg(test)]
@@ -57,15 +78,15 @@ mod tests {
 
     #[test]
     #[serial(TestRepo)]
-    fn it_works() -> Result<(), git2::Error> {
+    fn basic_head_read() -> Result<(), git2::Error> {
         let repo = get_test_repo();
 
         let result = create_bucket_from_head(&repo)?;
 
         let mut bucket = bucket::Bucket::new();
-        bucket.set(COMMIT_NAME, bucket::Value::String("placeholder".to_string()));
-        bucket.set(COMMIT_MESSAGE, bucket::Value::String("placeholder".to_string()));
-        bucket.set(COMMIT_DESCRIPTION, bucket::Value::String("placeholder".to_string()));
+        bucket.set(COMMIT_NAME, bucket::Value::String("501628ba7b2a3cedb39eaab767c4ead9991ff8ae".to_string()));
+        bucket.set(COMMIT_MESSAGE, bucket::Value::String("Update file in folder\n".to_string()));
+        bucket.set(COMMIT_DESCRIPTION, bucket::Value::String("Update file in folder".to_string()));
         bucket.set(IS_HEAD, bucket::Value::Bool(true));
         let mut files_bucket = bucket::Bucket::new();
         files_bucket.set("file.txt", bucket::Value::String("test string file".to_string()));
@@ -73,5 +94,9 @@ mod tests {
         bucket.set(FILES, bucket::Value::Bucket(files_bucket));
         assert_eq!(result, bucket);
         Ok(())
+    }
+
+    fn check_if_ignores_big_files() {
+        todo!();
     }
 }
