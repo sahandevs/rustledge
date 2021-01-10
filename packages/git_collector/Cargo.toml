@@ -9,3 +9,7 @@ edition = "2018"
 [dependencies]
 git2 = "0.13"
 bucket = { path = "../bucket" }
+
+[dev-dependencies]
+zip = "0.5.9"
+serial_test = "0.5.1"
