@@ -96,6 +96,7 @@ mod tests {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn check_if_ignores_big_files() {
         todo!();
     }
