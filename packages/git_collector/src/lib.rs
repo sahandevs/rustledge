@@ -1,4 +1,4 @@
-use git2::*;
+pub use git2::*;
 use bucket;
 use std::fs;
 use walkdir::WalkDir;
@@ -47,11 +47,11 @@ pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket
         if file.metadata().unwrap().len() > 1_000_000 {
             continue;
         }
-        println!("{:?}", relative_path);
         let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
-
-        files_bucket.set(&relative_path, bucket::Value::String(content));
+        let result = file.read_to_string(&mut content);
+        if result.is_ok() {
+            files_bucket.set(&relative_path, bucket::Value::String(content));
+        }
     }
     bucket.set(FILES, bucket::Value::Bucket(files_bucket));
 

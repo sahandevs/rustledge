@@ -21,7 +21,7 @@ impl Clone for Value {
 
 #[derive(Debug, PartialEq)]
 pub struct Bucket {
-    values: HashMap<String, Value>,
+    pub values: HashMap<String, Value>,
 }
 
 impl Bucket {
@@ -33,6 +33,20 @@ impl Bucket {
 
     pub fn get(&self, key: &str) -> Option<&Value> {
         self.values.get(key)
+    }
+
+    pub fn get_string(&self, key: &str) -> Option<&String> {
+        match self.get(key).unwrap() {
+            Value::String(val) => Some(&val),
+            _ => None
+        }
+    }
+
+    pub fn get_bucket(&self, key: &str) -> Option<&Bucket> {
+        match self.get(key).unwrap() {
+            Value::Bucket(val) => Some(&val),
+            _ => None
+        }
     }
 
     pub fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
