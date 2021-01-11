@@ -1,46 +1,35 @@
-use gotham::router::Router;
-use gotham::router::builder::*;
-use gotham::state::State;
+#![feature(proc_macro_hygiene, decl_macro)]
 
-const HELLO_WORLD: &'static str = "Hello World!";
+use rocket::{post, routes};
+use rocket_contrib::json::Json;
+use serde::{Deserialize, Serialize};
 
-
-pub fn search(state: State) -> (State, &'static str) {
-    (state, HELLO_WORLD)
+#[derive(Deserialize)]
+struct SearchRequest {
+    query: String,
 }
 
-fn router() -> Router {
-    build_simple_router(|route| {
-        route.post("/search").to(search);
-    })
+#[derive(Serialize)]
+struct SearchResult {
+    title: String,
+    description: String,
+    ref_link: String,
+}
+
+#[post("/search", data = "<data>")]
+fn search(data: Json<SearchRequest>) -> Json<Vec<SearchResult>> {
+    let mut result = Vec::new();
+    result.push(SearchResult {
+        description: "desc".to_string(),
+        title: "title".to_string(),
+        ref_link: "http://google.com/".to_string(),
+    });
+    Json(result)
 }
 
 pub fn main() {
-    let addr = "127.0.0.1:7878";
-    println!("Listening for requests at http://{}", addr);
-    gotham::start(addr, router());
-    println!("test");
+    rocket::ignite().mount("/", routes![search]).launch();
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use gotham::hyper::StatusCode;
-    use gotham::test::TestServer;
-    use mime;
-
-    #[test]
-    fn receive_hello_world_response() {
-        let test_server = TestServer::new(router()).unwrap();
-        let response = test_server
-            .client()
-            .post("http://localhost/search", "test", mime::TEXT_HTML_UTF_8)
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = response.read_body().unwrap();
-        assert_eq!(&body[..], b"Hello World!");
-    }
-}
+mod tests {}
