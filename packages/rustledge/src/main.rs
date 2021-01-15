@@ -1,12 +1,19 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use rocket::State;
 use bucket;
 use git_collector::{create_bucket_from_head, Repository};
-use regex::RegexBuilder;
 use rocket::{post, routes};
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs;
+use std::path::Path;
+use tantivy::collector::TopDocs;
+use tantivy::query::QueryParser;
+use tantivy::schema::*;
+use tantivy::Index;
+use tantivy::ReloadPolicy;
 
 #[derive(Deserialize)]
 struct SearchRequest {
@@ -21,38 +28,113 @@ struct SearchResult {
 }
 
 #[post("/search", data = "<data>")]
-fn search(data: Json<SearchRequest>) -> Json<Vec<SearchResult>> {
-    // for testing purposes we use current repo to create a bucket
-    let git_path = env::current_dir().unwrap();
-    let repo = Repository::open(git_path.as_path()).unwrap();
-    let bucket = create_bucket_from_head(&repo).unwrap();
+fn search(data: Json<SearchRequest>, index_server: State<Box<IndexServer>>) -> Json<Vec<SearchResult>> {
+    let searcher = index_server.reader.searcher();
 
-    let query = RegexBuilder::new(&data.query)
-        .case_insensitive(true)
-        .build()
-        .unwrap();
+    let query = index_server.query_parser.parse_query(&data.query).unwrap();
+    let top_docs = searcher.search(&query, &TopDocs::with_limit(10)).unwrap();
 
-    let files = bucket.get_bucket("FILES").unwrap();
+    let title = index_server.schema.get_field("title").unwrap();
+    let body = index_server.schema.get_field("body").unwrap();
+
     let mut result = Vec::new();
-
-    for (file_name, content) in files.values.iter() {
-        let content = match content {
-            bucket::Value::String(val) => val,
-            _ => continue,
-        };
-        if query.is_match(&content) {
-            result.push(SearchResult {
-                description: content.clone(),
-                title: file_name.clone(),
-                ref_link: "http://google.com/".to_string(),
-            });
-        }
+    for (_, doc_address) in top_docs  {
+        let doc = searcher.doc(doc_address).unwrap();
+        let title_value = doc.get_first(title).unwrap().text().unwrap();
+        let body_value = doc.get_first(body).unwrap().text().unwrap();
+        result.push(SearchResult {
+            ref_link: "".to_string(),
+            title: title_value.to_string(),
+            description: body_value.to_string(),
+        })
     }
     Json(result)
 }
 
 pub fn main() {
-    rocket::ignite().mount("/", routes![search]).launch();
+    let index_server = create_index_server();
+    rocket::ignite()
+        .manage(Box::new(index_server))
+        .mount("/", routes![search]).launch();
+}
+
+// setup full text search engine
+
+fn create_tantivy_schema() -> Schema {
+    let mut schema_builder = Schema::builder();
+    schema_builder.add_text_field("title", TEXT | STORED);
+    schema_builder.add_text_field("body", TEXT | STORED);
+    schema_builder.build()
+}
+
+fn setup_index(schema: &Schema) -> tantivy::Index {
+    let path = "./test_artifacts/test_repo";
+    fs::remove_dir_all(path).unwrap_or_default();
+    fs::create_dir_all(path).unwrap();
+    let index = Index::create_in_dir(Path::new(path), schema.clone()).unwrap();
+    index
+}
+
+fn fill_test_data(schema: &Schema, index: &tantivy::Index) {
+    let mut index_writer = index.writer(50_000_000).unwrap();
+    let title = schema.get_field("title").unwrap();
+    let body = schema.get_field("body").unwrap();
+
+    let git_path = env::current_dir().unwrap();
+    let repo = Repository::open(git_path.as_path()).unwrap();
+    let bucket = create_bucket_from_head(&repo).unwrap();
+
+    let files = bucket.get_bucket("FILES").unwrap();
+    for (file_name, content) in files.values.iter() {
+        let content = match content {
+            bucket::Value::String(val) => val,
+            _ => continue,
+        };
+        let mut doc = Document::default();
+        doc.add_text(title, file_name);
+        doc.add_text(body, content);
+       index_writer.add_document(doc);
+    }
+    
+    index_writer.commit().unwrap();
+}
+
+fn create_reader(index: &tantivy::Index) -> tantivy::IndexReader {
+    index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::OnCommit)
+        .try_into()
+        .unwrap()
+}
+
+fn create_query_parser(schema: &Schema, index: &tantivy::Index) -> QueryParser {
+    let title = schema.get_field("title").unwrap();
+    let body = schema.get_field("body").unwrap();
+
+    QueryParser::for_index(&index, vec![title, body])
+}
+
+struct IndexServer {
+    _index: tantivy::Index,
+    schema: Schema,
+    reader: tantivy::IndexReader,
+    query_parser: QueryParser,
+}
+
+fn create_index_server() -> IndexServer {
+    println!("Setting up the index server");
+    let schema = create_tantivy_schema();
+    let index = setup_index(&schema);
+    fill_test_data(&schema, &index);
+    let reader = create_reader(&index);
+    let query_parser = create_query_parser(&schema, &index);
+    println!("Finished setting up the index server");
+    IndexServer {
+        _index: index,
+        schema,
+        reader,
+        query_parser,
+    }
 }
 
 #[cfg(test)]
