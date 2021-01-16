@@ -1,0 +1,11 @@
+[package]
+name = "trello_collector"
+version = "0.1.0"
+authors = ["Sahandevs <sahandevs@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+trello-rs = "1.23.0"
+collector = { path = "../collector" }

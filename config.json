@@ -5,6 +5,10 @@
     "./test_artifacts/repo3",
     "./test_artifacts/repo4"
   ],
+  "trello": {
+    "key": "",
+    "token": ""
+  },
   "index_server": {
     "db_path": "./test_artifacts/dev_db"
   },
