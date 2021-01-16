@@ -41,7 +41,7 @@ pub fn main() {
 fn run_with_config(config: &Config) {
     let index_server = create_index_server(config);
 
-    let rocket_config = rocket::Config::build(Environment::Production)
+    let rocket_config = rocket::Config::build(Environment::Staging)
         .address("0.0.0.0")
         .port(config.api.port)
         .finalize()
