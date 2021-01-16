@@ -32,14 +32,14 @@ pub fn main() {
             config_path = argument.replace("--config=", "");
         }
     }
-    if config_path == "" { panic!("providing a config file (--config=) is required ")}
+    if config_path == "" { panic!("providing a config file (--config=) is required ") }
 
     let config = read_config(path::Path::new(&config_path));
     run_with_config(&config);
 }
 
 fn run_with_config(config: &Config) {
-    let index_server = create_index_server();
+    let index_server = create_index_server(config);
 
     let rocket_config = rocket::Config::build(Environment::Production)
         .address("0.0.0.0")

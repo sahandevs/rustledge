@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::path::Path;
 use tantivy::collector::TopDocs;
@@ -9,6 +8,7 @@ use tantivy::ReloadPolicy;
 use bucket;
 use git_collector::{create_bucket_from_head, Repository};
 use serde::Serialize;
+use crate::config::Config;
 
 fn create_tantivy_schema() -> Schema {
     let mut schema_builder = Schema::builder();
@@ -17,35 +17,36 @@ fn create_tantivy_schema() -> Schema {
     schema_builder.build()
 }
 
-fn setup_index(schema: &Schema) -> tantivy::Index {
-    let path = "./test_artifacts/test_repo";
+fn setup_index(schema: &Schema, config: &Config) -> tantivy::Index {
+    let path = &config.index_server.db_path;
     fs::remove_dir_all(path).unwrap_or_default();
     fs::create_dir_all(path).unwrap();
     let index = Index::create_in_dir(Path::new(path), schema.clone()).unwrap();
     index
 }
 
-fn fill_test_data(schema: &Schema, index: &tantivy::Index) {
+fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
     let mut index_writer = index.writer(50_000_000).unwrap();
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
 
-    let git_path = env::current_dir().unwrap();
-    let repo = Repository::open(git_path.as_path()).unwrap();
-    let bucket = create_bucket_from_head(&repo).unwrap();
+    for repo in &config.git_repos {
+        let git_path = Path::new(repo);
+        let repo = Repository::open(git_path).unwrap();
+        let bucket = create_bucket_from_head(&repo).unwrap();
 
-    let files = bucket.get_bucket("FILES").unwrap();
-    for (file_name, content) in files.values.iter() {
-        let content = match content {
-            bucket::Value::String(val) => val,
-            _ => continue,
-        };
-        let mut doc = Document::default();
-        doc.add_text(title, file_name);
-        doc.add_text(body, content);
-        index_writer.add_document(doc);
+        let files = bucket.get_bucket("FILES").unwrap();
+        for (file_name, content) in files.values.iter() {
+            let content = match content {
+                bucket::Value::String(val) => val,
+                _ => continue,
+            };
+            let mut doc = Document::default();
+            doc.add_text(title, file_name);
+            doc.add_text(body, content);
+            index_writer.add_document(doc);
+        }
     }
-
     index_writer.commit().unwrap();
 }
 
@@ -71,11 +72,11 @@ pub struct IndexServer {
     query_parser: QueryParser,
 }
 
-pub fn create_index_server() -> IndexServer {
+pub fn create_index_server(config: &Config) -> IndexServer {
     println!("Setting up the index server");
     let schema = create_tantivy_schema();
-    let index = setup_index(&schema);
-    fill_test_data(&schema, &index);
+    let index = setup_index(&schema, config);
+    fill_data(&schema, &index, config);
     let reader = create_reader(&index);
     let query_parser = create_query_parser(&schema, &index);
     println!("Finished setting up the index server");

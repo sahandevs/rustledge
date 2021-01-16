@@ -1,10 +1,12 @@
 {
   "git_repos": [
-    "./relative_path_to_a_git_folder",
-    "C:/Git/Project"
+    "./test_artifacts/repo1",
+    "./test_artifacts/repo2",
+    "./test_artifacts/repo3",
+    "./test_artifacts/repo4"
   ],
   "index_server": {
-    "db_path": "./db"
+    "db_path": "./test_artifacts/dev_db"
   },
   "api": {
     "port": 3000
