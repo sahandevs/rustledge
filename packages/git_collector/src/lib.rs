@@ -3,6 +3,8 @@ use bucket;
 use std::fs;
 use walkdir::WalkDir;
 use std::io::Read;
+use std::path;
+use bucket::{CollectResult, CollectError, FlatData, Bucket};
 
 const COMMIT_NAME: &str = "COMMIT-NAME";
 const IS_HEAD: &str = "IS-HEAD";
@@ -11,7 +13,7 @@ const COMMIT_DESCRIPTION: &str = "COMMIT-DESCRIPTION";
 const FILES: &str = "FILES";
 const REMOTE_URL: &str = "REMOTE-URL";
 
-pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket, git2::Error> {
+fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket, git2::Error> {
     repository.checkout_head(None)?;
 
     let remote_name = repository.remotes().unwrap();
@@ -68,6 +70,47 @@ pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket
     bucket.set(FILES, bucket::Value::Bucket(files_bucket));
 
     Ok(bucket)
+}
+
+pub struct GitCollector<'a> {
+    path: &'a path::Path
+}
+
+impl GitCollector<'_> {
+    pub fn new(path: &path::Path) -> GitCollector {
+        GitCollector {
+            path
+        }
+    }
+}
+
+impl bucket::Collector for GitCollector<'_> {
+    fn convert_to_flat_data(&self, bucket: &Bucket) -> Vec<FlatData> {
+        let mut result: Vec<bucket::FlatData> = vec![];
+        let remote_url = bucket.get_string("REMOTE-URL").unwrap();
+
+        let files = bucket.get_bucket("FILES").unwrap();
+        for (file_name, content) in files.values.iter() {
+            let content = match content {
+                bucket::Value::String(val) => val,
+                _ => continue,
+            };
+
+            let ref_link_content = remote_url.to_owned() + "/-/blob/master/" + file_name;
+            result.push(bucket::FlatData {
+                title: file_name.to_owned(),
+                body: content.to_owned(),
+                ref_link: ref_link_content,
+            });
+        }
+        result
+    }
+
+    fn collect(&self) -> Result<CollectResult, CollectError> {
+        let repo = Repository::open(self.path).unwrap();
+        let bucket = create_bucket_from_head(&repo).unwrap();
+        Ok(CollectResult::New(bucket))
+    }
 }
 
 #[cfg(test)]

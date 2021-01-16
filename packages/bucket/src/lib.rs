@@ -66,9 +66,38 @@ impl Clone for Bucket {
     }
 }
 
+pub struct FlatData {
+    pub title: String,
+    pub body: String,
+    pub ref_link: String,
+}
+
+pub type ConverterCallBack = fn(Vec<FlatData>);
+
+pub enum CollectResult {
+    /// group of data that has not been indexed before
+    New(Bucket),
+    /// update for group of data that has been updated indexed before
+    Incremental(Bucket),
+    /// no action is required
+    Nop,
+}
+
+#[derive(Debug)]
+pub enum CollectError {
+    General
+}
+
+pub trait Collector {
+    fn convert_to_flat_data(&self, bucket: &Bucket) -> Vec<FlatData>;
+
+    fn collect(&self) -> Result<CollectResult, CollectError>;
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
+
     #[test]
     fn new_creates_empty_bucket() {
         let _ = Bucket::new();
@@ -105,7 +134,7 @@ mod tests {
         bucket.set("test", Value::List(vec!["a".to_string(), "b".to_string()]));
         assert_eq!(
             *bucket.get("test").unwrap(),
-            Value::List(vec!["a".to_string(), "b".to_string(),]),
+            Value::List(vec!["a".to_string(), "b".to_string(), ]),
         );
     }
 
@@ -115,7 +144,7 @@ mod tests {
         let mut value_bucket = Bucket::new();
         value_bucket.set("val1", Value::String("tesst".to_string()));
         let copy_value_bucket = value_bucket.clone();
-        
+
         bucket.set("test", Value::Bucket(value_bucket));
         assert_eq!(
             *bucket.values.get("test").unwrap(),

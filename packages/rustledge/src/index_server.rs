@@ -6,9 +6,10 @@ use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
 use bucket;
-use git_collector::{create_bucket_from_head, Repository};
+use git_collector::{GitCollector};
 use serde::Serialize;
 use crate::config::Config;
+use bucket::Collector;
 
 fn create_tantivy_schema() -> Schema {
     let mut schema_builder = Schema::builder();
@@ -27,34 +28,34 @@ fn setup_index(schema: &Schema, config: &Config) -> tantivy::Index {
 }
 
 fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
+    let mut new_index_records: Vec<bucket::FlatData> = vec![];
+
+    for repo in &config.git_repos {
+        let git_path = Path::new(repo);
+        let collector = GitCollector::new(git_path);
+        let bucket = collector.collect().unwrap();
+        match &bucket {
+            bucket::CollectResult::New(data) => {
+                let mut new = collector.convert_to_flat_data(data);
+                new_index_records.append(&mut new);
+            }
+            _ => unimplemented!(),
+        }
+    }
+
     let mut index_writer = index.writer(50_000_000).unwrap();
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
     let ref_link = schema.get_field("ref_link").unwrap();
 
-    for repo in &config.git_repos {
-        let git_path = Path::new(repo);
-        let repo = Repository::open(git_path).unwrap();
-        let bucket = create_bucket_from_head(&repo).unwrap();
-
-        let remote_url = bucket.get_string("REMOTE-URL").unwrap();
-
-        let files = bucket.get_bucket("FILES").unwrap();
-        for (file_name, content) in files.values.iter() {
-            let content = match content {
-                bucket::Value::String(val) => val,
-                _ => continue,
-            };
-            let mut doc = Document::default();
-
-            let ref_link_content = remote_url.to_owned() + "/-/blob/master/" + file_name;
-
-            doc.add_text(title, file_name);
-            doc.add_text(body, content);
-            doc.add_text(ref_link, &ref_link_content);
-            index_writer.add_document(doc);
-        }
+    for record in &new_index_records {
+        let mut doc = Document::default();
+        doc.add_text(title, &record.title);
+        doc.add_text(body, &record.body);
+        doc.add_text(ref_link, &record.ref_link);
+        index_writer.add_document(doc);
     }
+
     index_writer.commit().unwrap();
 }
 
