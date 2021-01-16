@@ -1,0 +1,12 @@
+{
+  "git_repos": [
+    "./relative_path_to_a_git_folder",
+    "C:/Git/Project"
+  ],
+  "index_db": {
+    "path": "./db"
+  },
+  "api": {
+    "port": 3000
+  }
+}
