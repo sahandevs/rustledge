@@ -3,8 +3,8 @@
     "./relative_path_to_a_git_folder",
     "C:/Git/Project"
   ],
-  "index_db": {
-    "path": "./db"
+  "index_server": {
+    "db_path": "./db"
   },
   "api": {
     "port": 3000
