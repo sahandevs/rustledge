@@ -14,6 +14,7 @@ fn create_tantivy_schema() -> Schema {
     let mut schema_builder = Schema::builder();
     schema_builder.add_text_field("title", TEXT | STORED);
     schema_builder.add_text_field("body", TEXT | STORED);
+    schema_builder.add_text_field("ref_link", TEXT | STORED);
     schema_builder.build()
 }
 
@@ -29,11 +30,14 @@ fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
     let mut index_writer = index.writer(50_000_000).unwrap();
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
+    let ref_link = schema.get_field("ref_link").unwrap();
 
     for repo in &config.git_repos {
         let git_path = Path::new(repo);
         let repo = Repository::open(git_path).unwrap();
         let bucket = create_bucket_from_head(&repo).unwrap();
+
+        let remote_url = bucket.get_string("REMOTE-URL").unwrap();
 
         let files = bucket.get_bucket("FILES").unwrap();
         for (file_name, content) in files.values.iter() {
@@ -42,8 +46,12 @@ fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
                 _ => continue,
             };
             let mut doc = Document::default();
+
+            let ref_link_content = remote_url.to_owned() + "/-/blob/master/" + file_name;
+
             doc.add_text(title, file_name);
             doc.add_text(body, content);
+            doc.add_text(ref_link, &ref_link_content);
             index_writer.add_document(doc);
         }
     }
@@ -61,8 +69,9 @@ fn create_reader(index: &tantivy::Index) -> tantivy::IndexReader {
 fn create_query_parser(schema: &Schema, index: &tantivy::Index) -> QueryParser {
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();
+    let ref_link = schema.get_field("ref_link").unwrap();
 
-    QueryParser::for_index(&index, vec![title, body])
+    QueryParser::for_index(&index, vec![title, body, ref_link])
 }
 
 pub struct IndexServer {
@@ -103,14 +112,16 @@ pub fn search_top_docs(query: &str, index_server: &IndexServer) -> Vec<SearchRes
 
     let title = index_server.schema.get_field("title").unwrap();
     let body = index_server.schema.get_field("body").unwrap();
+    let ref_link = index_server.schema.get_field("ref_link").unwrap();
 
     let mut result = Vec::new();
     for (_, doc_address) in top_docs {
         let doc = searcher.doc(doc_address).unwrap();
         let title_value = doc.get_first(title).unwrap().text().unwrap();
         let body_value = doc.get_first(body).unwrap().text().unwrap();
+        let ref_link_value = doc.get_first(ref_link).unwrap().text().unwrap();
         result.push(SearchResult {
-            ref_link: "".to_string(),
+            ref_link: ref_link_value.to_string(),
             title: title_value.to_string(),
             description: body_value.to_string(),
         })

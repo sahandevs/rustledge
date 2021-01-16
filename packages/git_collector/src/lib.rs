@@ -9,9 +9,20 @@ const IS_HEAD: &str = "IS-HEAD";
 const COMMIT_MESSAGE: &str = "COMMIT-MESSAGE";
 const COMMIT_DESCRIPTION: &str = "COMMIT-DESCRIPTION";
 const FILES: &str = "FILES";
+const REMOTE_URL: &str = "REMOTE-URL";
 
 pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket, git2::Error> {
     repository.checkout_head(None)?;
+
+    let remote_name = repository.remotes().unwrap();
+    let remote_name = remote_name.get(0).unwrap_or("").to_owned();
+    let remote_url = if remote_name == "" {
+        "".to_string()
+    } else {
+        let remote = repository.find_remote(&remote_name).unwrap();
+        remote.url().unwrap().to_string()
+    };
+
     let head = repository.head()?;
     let commit = head.peel_to_commit()?;
     let commit_name = commit.id().to_string();
@@ -26,6 +37,7 @@ pub fn create_bucket_from_head(repository: &Repository) -> Result<bucket::Bucket
     bucket.set(COMMIT_MESSAGE, bucket::Value::String(commit_message));
     bucket.set(COMMIT_DESCRIPTION, bucket::Value::String(commit_description));
     bucket.set(IS_HEAD, bucket::Value::Bool(true));
+    bucket.set(REMOTE_URL, bucket::Value::String(remote_url));
 
     // set files
     let mut files_bucket = bucket::Bucket::new();
@@ -88,6 +100,7 @@ mod tests {
         bucket.set(COMMIT_MESSAGE, bucket::Value::String("Update file in folder\n".to_string()));
         bucket.set(COMMIT_DESCRIPTION, bucket::Value::String("Update file in folder".to_string()));
         bucket.set(IS_HEAD, bucket::Value::Bool(true));
+        bucket.set(REMOTE_URL, bucket::Value::String("".to_string()));
         let mut files_bucket = bucket::Bucket::new();
         files_bucket.set("file.txt", bucket::Value::String("test string file".to_string()));
         files_bucket.set("folder/file", bucket::Value::String("file2 content".to_string()));
