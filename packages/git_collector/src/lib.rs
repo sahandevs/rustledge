@@ -87,9 +87,9 @@ impl GitCollector<'_> {
 impl collector::Collector for GitCollector<'_> {
     fn convert_to_flat_data(&self, bucket: &Bucket) -> Vec<FlatData> {
         let mut result: Vec<collector::FlatData> = vec![];
-        let remote_url = bucket.get_string("REMOTE-URL").unwrap();
+        let remote_url = bucket.get_string(REMOTE_URL).unwrap();
 
-        let files = bucket.get_bucket("FILES").unwrap();
+        let files = bucket.get_bucket(FILES).unwrap();
         for (file_name, content) in files.values.iter() {
             let content = match content {
                 collector::Value::String(val) => val,
