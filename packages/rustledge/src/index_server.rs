@@ -5,11 +5,11 @@ use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
-use bucket;
 use git_collector::{GitCollector};
 use serde::Serialize;
 use crate::config::Config;
-use bucket::Collector;
+use collector;
+use collector::Collector;
 
 fn create_tantivy_schema() -> Schema {
     let mut schema_builder = Schema::builder();
@@ -28,14 +28,14 @@ fn setup_index(schema: &Schema, config: &Config) -> tantivy::Index {
 }
 
 fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
-    let mut new_index_records: Vec<bucket::FlatData> = vec![];
+    let mut new_index_records: Vec<collector::FlatData> = vec![];
 
     for repo in &config.git_repos {
         let git_path = Path::new(repo);
         let collector = GitCollector::new(git_path);
         let bucket = collector.collect().unwrap();
         match &bucket {
-            bucket::CollectResult::New(data) => {
+            collector::CollectResult::New(data) => {
                 let mut new = collector.convert_to_flat_data(data);
                 new_index_records.append(&mut new);
             }

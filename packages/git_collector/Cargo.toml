@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 git2 = "0.13"
 walkdir = "2.3.1"
-bucket = { path = "../bucket" }
+collector = { path = "../collector" }
 
 [dev-dependencies]
 zip = "0.5.9"

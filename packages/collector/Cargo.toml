@@ -1,5 +1,5 @@
 [package]
-name = "bucket"
+name = "collector"
 version = "0.1.0"
 authors = ["Sahandevs <sahandevs@gmail.com>"]
 edition = "2018"
