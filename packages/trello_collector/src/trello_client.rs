@@ -1,5 +1,6 @@
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use rayon::prelude::*;
 
 pub struct TrelloClient {
     key: String,
@@ -28,7 +29,7 @@ pub struct Card {
     pub description: String,
     #[serde(rename = "shortUrl")]
     pub short_url: String,
-    pub badges: CardBadges
+    pub badges: CardBadges,
 }
 
 #[derive(Deserialize)]
@@ -71,27 +72,30 @@ impl TrelloClient {
     }
 
     pub fn get_all_cards_with_comments(&self) -> Vec<CardsWithComments> {
-        let mut result: Vec<CardsWithComments> = vec![];
         let boards = self.get::<Vec<Board>>("/members/me/boards/?");
-        for board in &boards {
-            let cards = self.get::<Vec<Card>>(&format!("/boards/{}/cards/?", board.id));
-            for card in &cards {
-                let mut result_card = CardsWithComments {
-                    title: card.name.to_string(),
-                    short_url: card.short_url.to_string(),
-                    description: card.description.to_string(),
-                    comments: vec![],
-                };
-                if card.badges.comments > 0 {
-                    let actions = self.get::<Vec<CardAction>>(&format!("/cards/{}/actions?filter=commentCard&", card.id));
-                    for action in actions {
-                        result_card.comments.push(action.data.text.clone());
-                    }
-                }
-                result.push(result_card);
-            }
-        }
-        result
+        boards.par_iter()
+            .map(|board| {
+                let cards = self.get::<Vec<Card>>(&format!("/boards/{}/cards/?", board.id));
+                cards.iter()
+                    .map(|card| {
+                        let mut result_card = CardsWithComments {
+                            title: card.name.to_string(),
+                            short_url: card.short_url.to_string(),
+                            description: card.description.to_string(),
+                            comments: vec![],
+                        };
+                        if card.badges.comments > 0 {
+                            let actions = self.get::<Vec<CardAction>>(&format!("/cards/{}/actions?filter=commentCard&", card.id));
+                            for action in actions {
+                                result_card.comments.push(action.data.text.clone());
+                            }
+                        }
+                        result_card
+                    })
+                    .collect::<Vec<CardsWithComments>>()
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -120,7 +124,6 @@ mod tests {
             }
         };
 
-        let result = client.get_all_cards_with_comments();
-        println!("{:?}", result);
+        let _ = client.get_all_cards_with_comments();
     }
 }
