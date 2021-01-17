@@ -1,6 +1,8 @@
+mod trello_client;
+
 use collector;
 use collector::{Bucket, CollectResult, CollectError, FlatData};
-use trello;
+use crate::trello_client::TrelloClient;
 
 const CARDS: &str = "CARDS";
 const TITLE: &str = "TITLE";
@@ -9,15 +11,14 @@ const COMMENTS: &str = "COMMENTS";
 const URL: &str = "URL";
 
 pub struct TrelloCollector {
-    trello_client: trello::Client,
+    trello_client: TrelloClient,
 }
 
 impl TrelloCollector {
     pub fn new(token: &str, key: &str) -> TrelloCollector {
-        let trello_client = trello::Client::new(
-            "https://api.trello.com",
-            token,
+        let trello_client = TrelloClient::new(
             key,
+            token,
         );
         TrelloCollector {
             trello_client
@@ -41,10 +42,7 @@ impl collector::Collector for TrelloCollector {
     }
 
     fn collect(&self) -> Result<CollectResult, CollectError> {
-        let _ = match trello::Board::get_all(&self.trello_client) {
-            Ok(value) => value,
-            Err(e) => return Err(CollectError::General)
-        };
+        let _ = self.trello_client.get_all_cards_with_comments();
         let mut cards_bucket = collector::Bucket::new();
 
         let mut bucket = collector::Bucket::new();

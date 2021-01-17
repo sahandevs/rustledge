@@ -7,5 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-trello-rs = "1.23.0"
 collector = { path = "../collector" }
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+serde = { version = "1.0.118", features = ["derive"] }
+serde_json = "1.0.61"
