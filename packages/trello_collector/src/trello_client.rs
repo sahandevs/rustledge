@@ -1,6 +1,5 @@
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use rayon::prelude::*;
 
 pub struct TrelloClient {
     key: String,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use goji::{Credentials, Jira, SearchOptions};
 
 pub struct JiraClient {
