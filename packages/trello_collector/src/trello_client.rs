@@ -73,7 +73,7 @@ impl TrelloClient {
 
     pub fn get_all_cards_with_comments(&self) -> Vec<CardsWithComments> {
         let boards = self.get::<Vec<Board>>("/members/me/boards/?");
-        boards.par_iter()
+        boards.iter()
             .map(|board| {
                 let cards = self.get::<Vec<Card>>(&format!("/boards/{}/cards/?", board.id));
                 cards.iter()
