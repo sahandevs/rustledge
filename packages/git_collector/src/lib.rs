@@ -59,15 +59,15 @@ fn create_bucket_from_head(repository: &Repository) -> Result<collector::Bucket,
             .replace(&git_dir_root_as_str, "");
 
         let file_extension = relative_path.split(".").last().unwrap_or("");
-        let mut file = fs::File::open(entry.path()).unwrap();
         match file_extension {
             "docx" | "doc" => {
-                let result = read_all_docx_text(&file);
-                if let Ok(content) = result {
+                let result = read_all_docx_text(entry.path());
+                if let Some(content) = result {
                     files_bucket.set(&relative_path, collector::Value::String(content));
                 }
             }
             _ => {
+                let mut file = fs::File::open(entry.path()).unwrap();
                 // ignore files larger than 10mb
                 // TODO: add this to options
                 if file.metadata().unwrap().len() > 10_000_000 {
