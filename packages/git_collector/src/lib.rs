@@ -1,3 +1,5 @@
+mod docx_reader;
+
 pub use git2::*;
 use collector;
 use std::fs;
@@ -5,6 +7,7 @@ use walkdir::WalkDir;
 use std::io::Read;
 use std::path;
 use collector::{CollectResult, CollectError, FlatData, Bucket};
+use crate::docx_reader::read_all_docx_text;
 
 const COMMIT_NAME: &str = "COMMIT-NAME";
 const IS_HEAD: &str = "IS-HEAD";
@@ -55,16 +58,27 @@ fn create_bucket_from_head(repository: &Repository) -> Result<collector::Bucket,
             .replace("\\", "/") // support both win and linux
             .replace(&git_dir_root_as_str, "");
 
+        let file_extension = relative_path.split(".").last().unwrap_or("");
         let mut file = fs::File::open(entry.path()).unwrap();
-        // ignore files larger than 1mb
-        // TODO: add this to options
-        if file.metadata().unwrap().len() > 1_000_000 {
-            continue;
-        }
-        let mut content = String::new();
-        let result = file.read_to_string(&mut content);
-        if result.is_ok() {
-            files_bucket.set(&relative_path, collector::Value::String(content));
+        match file_extension {
+            "docx" | "doc" => {
+                let result = read_all_docx_text(&file);
+                if let Ok(content) = result {
+                    files_bucket.set(&relative_path, collector::Value::String(content));
+                }
+            }
+            _ => {
+                // ignore files larger than 10mb
+                // TODO: add this to options
+                if file.metadata().unwrap().len() > 10_000_000 {
+                    continue;
+                }
+                let mut content = String::new();
+                let result = file.read_to_string(&mut content);
+                if result.is_ok() {
+                    files_bucket.set(&relative_path, collector::Value::String(content));
+                }
+            }
         }
     }
     bucket.set(FILES, collector::Value::Bucket(files_bucket));
