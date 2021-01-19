@@ -8,6 +8,13 @@ pub struct Config {
     pub git_repos: Vec<String>,
     pub index_server: IndexServerConfig,
     pub api: ApiConfig,
+    pub trello: TrelloConfig,
+}
+
+#[derive(Deserialize)]
+pub struct TrelloConfig {
+    pub key: String,
+    pub token: String,
 }
 
 #[derive(Deserialize)]
@@ -40,4 +47,6 @@ fn process_config(config: &mut Config) {
         _replace_string_with_env(repo);
     }
     _replace_string_with_env(&mut config.index_server.db_path);
+    _replace_string_with_env(&mut config.trello.token);
+    _replace_string_with_env(&mut config.trello.key);
 }

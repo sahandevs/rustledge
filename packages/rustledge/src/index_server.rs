@@ -6,6 +6,7 @@ use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::ReloadPolicy;
 use git_collector::{GitCollector};
+use trello_collector::{TrelloCollector};
 use serde::Serialize;
 use crate::config::Config;
 use collector;
@@ -30,7 +31,9 @@ fn setup_index(schema: &Schema, config: &Config) -> tantivy::Index {
 fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
     let mut new_index_records: Vec<collector::FlatData> = vec![];
 
+    println!("Indexing started");
     for repo in &config.git_repos {
+        println!("Indexing git repo: {}", repo);
         let git_path = Path::new(repo);
         let collector = GitCollector::new(git_path);
         let bucket = collector.collect().unwrap();
@@ -43,6 +46,17 @@ fn fill_data(schema: &Schema, index: &tantivy::Index, config: &Config) {
         }
     }
 
+    println!("Indexing trello cards");
+    let trello_collector = TrelloCollector::new(&config.trello.token, &config.trello.key);
+    let bucket = trello_collector.collect().unwrap();
+    match &bucket {
+        collector::CollectResult::New(data) => {
+            let mut new = trello_collector.convert_to_flat_data(data);
+            new_index_records.append(&mut new);
+        }
+        _ => unimplemented!(),
+    }
+    println!("Indexing done!");
     let mut index_writer = index.writer(50_000_000).unwrap();
     let title = schema.get_field("title").unwrap();
     let body = schema.get_field("body").unwrap();

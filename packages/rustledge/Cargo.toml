@@ -10,6 +10,7 @@ edition = "2018"
 rocket = "0.4.6"
 rocket_contrib = "0.4.6"
 git_collector = { path = "../git_collector" }
+trello_collector = { path = "../trello_collector" }
 collector = { path = "../collector" }
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = "1.0.61"

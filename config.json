@@ -6,8 +6,8 @@
     "./test_artifacts/repo4"
   ],
   "trello": {
-    "key": "",
-    "token": ""
+    "key": "env:TRELLO_KEY",
+    "token": "env:TRELLO_TOKEN"
   },
   "index_server": {
     "db_path": "./test_artifacts/dev_db"
