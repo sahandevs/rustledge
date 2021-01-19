@@ -3,14 +3,12 @@ use std::path::Path;
 use docx::document::{BodyContent, ParagraphContent, RunContent};
 
 pub fn read_all_docx_text(path: &Path) -> Option<String> {
-    // let docx_file = DocxFile::from_file(path);
-    // if let Err(_) = docx_file { return None; }
-    // let docx_file = docx_file.unwrap();
-    // let docx = docx_file.parse();
-    // if let Err(_) = docx { return None; }
-    // let docx = docx.unwrap();
-    let f = DocxFile::from_file(path).unwrap();
-    let docx = f.parse().unwrap();
+    let docx_file = DocxFile::from_file(path);
+    if let Err(_) = docx_file { return None; }
+    let docx_file = docx_file.unwrap();
+    let docx = docx_file.parse();
+    if let Err(_) = docx { return None; }
+    let docx = docx.unwrap();
 
     let mut result = String::new();
 
