@@ -10,8 +10,9 @@ edition = "2018"
 git2 = "0.13"
 walkdir = "2.3.1"
 collector = { path = "../collector" }
+docx = "1.1.2"
+pdf-extract = "0.6.2"
 
 [dev-dependencies]
 zip = "0.5.9"
 serial_test = "0.5.1"
-docx = "1.1.2"

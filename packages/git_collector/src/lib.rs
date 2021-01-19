@@ -1,4 +1,5 @@
 mod docx_reader;
+mod pdf_reader;
 
 pub use git2::*;
 use collector;
@@ -8,6 +9,7 @@ use std::io::Read;
 use std::path;
 use collector::{CollectResult, CollectError, FlatData, Bucket};
 use crate::docx_reader::read_all_docx_text;
+use crate::pdf_reader::read_all_pdf_text;
 
 const COMMIT_NAME: &str = "COMMIT-NAME";
 const IS_HEAD: &str = "IS-HEAD";
@@ -66,11 +68,17 @@ fn create_bucket_from_head(repository: &Repository) -> Result<collector::Bucket,
                     files_bucket.set(&relative_path, collector::Value::String(content));
                 }
             }
+            "pdf" => {
+                let result = read_all_pdf_text(entry.path());
+                if let Some(content) = result {
+                    files_bucket.set(&relative_path, collector::Value::String(content));
+                }
+            }
             _ => {
                 let mut file = fs::File::open(entry.path()).unwrap();
-                // ignore files larger than 10mb
+                // ignore files larger than 5mb
                 // TODO: add this to options
-                if file.metadata().unwrap().len() > 10_000_000 {
+                if file.metadata().unwrap().len() > 5_000_000 {
                     continue;
                 }
                 let mut content = String::new();
