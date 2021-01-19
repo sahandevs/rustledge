@@ -21,10 +21,12 @@ fn create_tantivy_schema() -> Schema {
 }
 
 fn setup_index(schema: &Schema, config: &Config) -> tantivy::Index {
-    let path = &config.index_server.db_path;
-    fs::remove_dir_all(path).unwrap_or_default();
-    fs::create_dir_all(path).unwrap();
-    let index = Index::create_in_dir(Path::new(path), schema.clone()).unwrap();
+    let path = Path::new(&config.index_server.db_path);
+    fs::create_dir_all(path).unwrap_or_default();
+
+    let index = Index::open_in_dir(path);
+    if let Ok(index) = index { return index; }
+    let index = Index::create_in_dir(path, schema.clone()).unwrap();
     index
 }
 
@@ -90,22 +92,38 @@ fn create_query_parser(schema: &Schema, index: &tantivy::Index) -> QueryParser {
 }
 
 pub struct IndexServer {
-    _index: tantivy::Index,
+    index: tantivy::Index,
     schema: Schema,
     reader: tantivy::IndexReader,
     query_parser: QueryParser,
+}
+
+pub fn recreate_index_server_db(index_server: &IndexServer, config: &Config) -> Result<(), ()> {
+    println!("Recreating index server");
+    // we execute following code in a block expression
+    // so we ensure index_write is freed before we call the fill_data
+    // tantivy doesn't allow more than one index_write at a same time
+    // and because we are using an index_writer inside fill_data, we have to free this one first.
+    {
+        let index_writer = index_server.index.writer(50_000_000).unwrap();
+        if !index_writer.delete_all_documents().is_ok() {
+            return Err(());
+        }
+    }
+    fill_data(&index_server.schema, &index_server.index, config);
+    println!("Recreating index server done!");
+    Ok(())
 }
 
 pub fn create_index_server(config: &Config) -> IndexServer {
     println!("Setting up the index server");
     let schema = create_tantivy_schema();
     let index = setup_index(&schema, config);
-    fill_data(&schema, &index, config);
     let reader = create_reader(&index);
     let query_parser = create_query_parser(&schema, &index);
     println!("Finished setting up the index server");
     IndexServer {
-        _index: index,
+        index,
         schema,
         reader,
         query_parser,

@@ -24,7 +24,8 @@ pub struct IndexServerConfig {
 
 #[derive(Deserialize)]
 pub struct ApiConfig {
-    pub port: u16
+    pub port: u16,
+    pub internal_commands_secret: String,
 }
 
 pub fn read_config(path: &Path) -> Config {
@@ -47,6 +48,7 @@ fn process_config(config: &mut Config) {
         _replace_string_with_env(repo);
     }
     _replace_string_with_env(&mut config.index_server.db_path);
+    _replace_string_with_env(&mut config.api.internal_commands_secret);
     _replace_string_with_env(&mut config.trello.token);
     _replace_string_with_env(&mut config.trello.key);
 }
