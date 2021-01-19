@@ -4,7 +4,7 @@ mod index_server;
 mod config;
 
 use rocket::State;
-use rocket::{post, routes};
+use rocket::{post, get, routes};
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 use crate::index_server::{SearchResult, search_top_docs, IndexServer, create_index_server, recreate_index_server_db};
@@ -12,6 +12,8 @@ use crate::config::{Config, read_config};
 use std::env;
 use rocket::config::Environment;
 use std::path;
+use std::fs;
+use rocket::response::content;
 
 #[derive(Deserialize)]
 struct SearchRequest {
@@ -60,6 +62,12 @@ fn recreate(data: Json<RecreateRequest>, index_server: State<Box<IndexServer>>, 
     )
 }
 
+#[get("/")]
+fn ui() -> content::Html<String> {
+    let index = fs::read_to_string("./web/index.html").unwrap();
+    content::Html(index)
+}
+
 pub fn main() {
     let mut config_path: String = String::from("./config.json");
     for argument in env::args() {
@@ -85,7 +93,7 @@ fn run_with_config(config: Config) {
     rocket::custom(rocket_config)
         .manage(Box::new(index_server))
         .manage(Box::new(config))
-        .mount("/", routes![search, recreate])
+        .mount("/", routes![search, recreate, ui])
         .launch();
 }
 

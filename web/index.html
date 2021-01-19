@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1"
+      crossorigin="anonymous"
+    />
+
+    <title>Rustledge</title>
+
+    <style>
+      .pad {
+        margin: 10px;
+      }
+
+      .desc {
+        max-height: 300px;
+      }
+
+      @keyframes flickerAnimation {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.2;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+      .animate-flicker {
+        animation: flickerAnimation 1s infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row pad">
+        <input
+          type="text"
+          class="form-control"
+          id="searchInput"
+          placeholder='search_term OR ("sep term" AND term)'
+        />
+      </div>
+    </div>
+    <div
+      id="resultContainer"
+      style="
+        flex-direction: column;
+        align-items: center;
+        padding-left: 2rem;
+        padding-right: 2rem;
+      "
+    ></div>
+    <script>
+      const requestSearch = (query) => {
+        return fetch("/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query }),
+        }).then((response) => {
+          return response.json();
+        });
+      };
+      const createResultItem = (item) => `
+            <div class="card" style="width: 100%; align-self: center;margin-top: 1rem;">
+              <div class="card-body">
+                <a href="${item.ref_link}">${item.title}</a>
+                <br />
+                <code class="card-text desc">${item.description.replaceAll(" ","&nbsp;").replaceAll(">", "").replaceAll(">", "").replaceAll("\n", "<br>")}</code>
+              </div>
+            </div>
+            `;
+      const inputElm = document.getElementById("searchInput");
+      const resultContainerElm = document.getElementById("resultContainer");
+      const doSearch = async () => {
+        const query = inputElm.value;
+        inputElm.classList.add("animate-flicker");
+        resultContainerElm.innerHTML = "";
+        let result = await requestSearch(query);
+        resultContainerElm.innerHTML = result.map(createResultItem).join("\n");
+        inputElm.classList.remove("animate-flicker");
+      };
+
+      inputElm.addEventListener("keyup", function (event) {
+        // Number 13 is the "Enter" key on the keyboard
+        if (event.keyCode === 13) {
+          event.preventDefault();
+          doSearch();
+        }
+      });
+    </script>
+  </body>
+</html>
