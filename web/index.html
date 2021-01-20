@@ -74,7 +74,12 @@
               <div class="card-body">
                 <a href="${item.ref_link}">${item.title}</a>
                 <br />
-                <code class="card-text desc">${item.description.replaceAll(" ","&nbsp;").replaceAll(">", "").replaceAll(">", "").replaceAll("\n", "<br>")}</code>
+                <code class="card-text desc">${item.description
+                  .replaceAll(" ","&nbsp;")
+                  .replaceAll(">", "")
+                  .replaceAll("<", "")
+                  .replaceAll("\n", "<br>")
+                }</code>
               </div>
             </div>
             `;
