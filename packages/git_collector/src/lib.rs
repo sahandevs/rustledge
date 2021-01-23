@@ -10,6 +10,8 @@ use std::path;
 use collector::{CollectResult, CollectError, FlatData, Bucket};
 use crate::docx_reader::read_all_docx_text;
 use crate::pdf_reader::read_all_pdf_text;
+use std::process::Command;
+use std::path::Path;
 
 const COMMIT_NAME: &str = "COMMIT-NAME";
 const IS_HEAD: &str = "IS-HEAD";
@@ -18,9 +20,33 @@ const COMMIT_DESCRIPTION: &str = "COMMIT-DESCRIPTION";
 const FILES: &str = "FILES";
 const REMOTE_URL: &str = "REMOTE-URL";
 
+fn try_git_pull(path: &Path) {
+    // implementing git_pull with libgit2 is very complex
+    // see https://github.com/rust-lang/git2-rs/blob/master/examples/pull.rs
+    // so we just run a simple shell command. this solution is very simple
+    // but requires user to have git installed in their system.
+    // if git2-rs adds official support for pull, we can use that instead.
+    let fetch = Command::new("git")
+        .arg("fetch")
+        .current_dir(path)
+        .spawn();
+    if let Ok(mut child) = fetch {
+        if let Ok(result) = child.wait() {
+            if result.success() {
+                let pull = Command::new("git")
+                    .arg("pull")
+                    .current_dir(path)
+                    .spawn();
+                if let Ok(mut child) = pull {
+                    let _ = child.wait();
+                }
+            }
+        }
+    }
+}
+
 fn create_bucket_from_head(repository: &Repository) -> Result<collector::Bucket, git2::Error> {
     repository.checkout_head(None)?;
-
     let remote_name = repository.remotes().unwrap();
     let remote_name = remote_name.get(0).unwrap_or("").to_owned();
     let remote_url = if remote_name == "" {
@@ -36,6 +62,8 @@ fn create_bucket_from_head(repository: &Repository) -> Result<collector::Bucket,
     let commit_message = commit.message().unwrap_or("").to_string();
     let commit_description = commit.summary().unwrap_or("").to_string();
     let git_dir_root = repository.path().parent().unwrap();
+
+    try_git_pull(git_dir_root);
 
     let mut bucket = collector::Bucket::new();
 
